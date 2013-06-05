@@ -58,6 +58,7 @@
 
 #define AP_XSENDFILE_HEADER "X-SENDFILE"
 #define AP_XSENDFILETEMPORARY_HEADER "X-SENDFILE-TEMPORARY"
+#define AP_XSENDFILE_USE_CE "X-SENDFILE-USE-CE" /* use http header "Content-Encoding" */
 
 module AP_MODULE_DECLARE_DATA xsendfile_module;
 
@@ -311,6 +312,8 @@ static apr_status_t ap_xsendfile_output_filter(ap_filter_t *f, apr_bucket_brigad
   char *file = NULL;
   char *translated = NULL;
 
+  char use_ce = NULL; /* use http header "Content-Encoding" */
+
   int errcode;
   int shouldDeleteFile = 0;
 
@@ -392,11 +395,22 @@ static apr_status_t ap_xsendfile_output_filter(ap_filter_t *f, apr_bucket_brigad
   }
   r->eos_sent = 0;
 
+  /* check http header "X-SENDFILE-USE-CE" */
+  use_ce = apr_table_get(r->headers_out, AP_XSENDFILE_USE_CE);
+  apr_table_unset(r->headers_out, AP_XSENDFILE_USE_CE);
+  /* cgi/fastcgi will put the stuff into err_headers_out */
+  if (!use_ce) {
+    use_ce = apr_table_get(r->err_headers_out, AP_XSENDFILE_USE_CE);
+    apr_table_unset(r->err_headers_out, AP_XSENDFILE_USE_CE);
+  }
+
   /* as we dropped all the content this field is not valid anymore! */
   apr_table_unset(r->headers_out, "Content-Length");
   apr_table_unset(r->err_headers_out, "Content-Length");
-  apr_table_unset(r->headers_out, "Content-Encoding");
-  apr_table_unset(r->err_headers_out, "Content-Encoding");
+  if (!use_ce) { /* if set "X-SENDFILE-USE-CE" */
+    apr_table_unset(r->headers_out, "Content-Encoding");
+    apr_table_unset(r->err_headers_out, "Content-Encoding");
+  }
 
   /* Decode header
      lighttpd does the same for X-Sendfile2, so we're compatible here
