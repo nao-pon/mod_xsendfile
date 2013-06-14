@@ -312,7 +312,7 @@ static apr_status_t ap_xsendfile_output_filter(ap_filter_t *f, apr_bucket_brigad
   char *file = NULL;
   char *translated = NULL;
 
-  char use_ce = NULL; /* use http header "Content-Encoding" */
+  char *use_ce = NULL; /* use http header "Content-Encoding" */
 
   int errcode;
   int shouldDeleteFile = 0;
@@ -396,18 +396,18 @@ static apr_status_t ap_xsendfile_output_filter(ap_filter_t *f, apr_bucket_brigad
   r->eos_sent = 0;
 
   /* check http header "X-SENDFILE-USE-CE" */
-  use_ce = apr_table_get(r->headers_out, AP_XSENDFILE_USE_CE);
+  use_ce = (char*)apr_table_get(r->headers_out, AP_XSENDFILE_USE_CE);
   apr_table_unset(r->headers_out, AP_XSENDFILE_USE_CE);
   /* cgi/fastcgi will put the stuff into err_headers_out */
-  if (!use_ce) {
-    use_ce = apr_table_get(r->err_headers_out, AP_XSENDFILE_USE_CE);
+  if (!use_ce || !*use_ce) {
+    use_ce = (char*)apr_table_get(r->err_headers_out, AP_XSENDFILE_USE_CE);
     apr_table_unset(r->err_headers_out, AP_XSENDFILE_USE_CE);
   }
 
   /* as we dropped all the content this field is not valid anymore! */
   apr_table_unset(r->headers_out, "Content-Length");
   apr_table_unset(r->err_headers_out, "Content-Length");
-  if (!use_ce) { /* if set "X-SENDFILE-USE-CE" */
+  if (!use_ce || !*use_ce) { /* if set "X-SENDFILE-USE-CE" */
     apr_table_unset(r->headers_out, "Content-Encoding");
     apr_table_unset(r->err_headers_out, "Content-Encoding");
   }
